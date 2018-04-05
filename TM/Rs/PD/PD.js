@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Places Database HIT
 // @namespace    http://tampermonkey.net/
-// @version      0.2.2
+// @version      0.3.0
 // @description  Script for Places Database HITs
 // @author       Kyle
 // @match        https://www.mturkcontent.com/dynamic/hit?assignmentId=*
@@ -12,53 +12,85 @@
 //video objects with an a attribute are known and must be correct
 //video objects with a b attribute are not known and are the HITs focus
 
-(function() {
+(function () {
   'use strict';
 
-  if(!isVideoRecognitionHit) {
+  if (!isVideoRecognitionHit) {
     return;
-  } else {
-    pageInitiation();
   }
   function isVideoRecognitionHit() {
-    return $("#definitionButton") !== undefined;
+    return document.getElementById("definitionButton") !== null;
   }
-  function pageInitiation() {
+
+  function DomCache() {
+    this.instrDiv = document.getElementById("instrDiv");
+    this.question = document.getElementById("question");
+    this.submitButton = document.getElementById("submitButton");
+    this.focus = document.getElementsByClassName("focus");
+  }
+
+  var cache = new DomCache();
+  const questionStyle = "display:'block',float:'left'";
+  const returnMessage = "This HIT does not contain known answers on the client side.  To prevent a potential block it is recommended that you return this HIT.";
+
+  //Replace global getTodoCnt to return 0 to show the number of incorrect answers at the start
+  window.getTodoCnt = function () {
+    return 0;
+  };
+
+  pageInitialization();
+
+  function pageInitialization() {
     showQuestion();
     if (!hitHasKnownAnswers()) {
       createReturnInstruction();
     }
-    createEvent();
+    bindEvent();
   }
+
   function showQuestion() {
-    var questionDiv = $(".question")[0];
-    $("#instrDiv").prepend(questionDiv);
+    cache.question.style = questionStyle;
   }
 
   function hitHasKnownAnswers() {
-    for(var i = 0; i < data.length; i++) {
-      if(data[i].hasOwnProperty("a")) {
+    for (var i = 0; i < data.length; i++) {
+      if (data[i].hasOwnProperty("a")) {
         return true;
       }
     }
     return false;
   }
   function createReturnInstruction() {
-    $("#instrDiv")[0].innerHTML = "This HIT does not contain known answers on the client side.  To prevent a potential block it is recommended that you return this HIT.";
+    cache.instrDiv.textContent = returnMessage;
   }
 
-  //Replace global getTodoCnt to return 0 to show the number of incorrect answers at the start
-  window.getTodoCnt = function() {
-    return 0;
-  };
+  function bindEvent() {
+    document.addEventListener("click", delayVideoReplacementCall);
+    document.addEventListener("keyup", delayVideoReplacementCall);
+    submitButton.addEventListener("click", unbindevent);
+  }
+  function unbindevent() {
+    document.removeEventListener("click", delayVideoReplacementCall);
+    document.removeEventListener("keyup", delayVideoReplacementCall);
+    submitButton.removeEventListener("click", unbindEvent);
+  }
 
-  function getAnswer(dataIndex) {
-    var answer = {
-      index: dataIndex,
-      value: data[dataIndex].a
-    };
-    answer.text = (answer.value) ? "YES" : "NO";
-    return answer;
+  function delayVideoReplacementCall() {
+    setTimeout(replaceFocusedVideoContainer, 1);
+  }
+
+  function replaceFocusedVideoContainer() {
+    if (cache.focus[0] !== undefined) {
+      replaceVideo();
+    }
+  }
+
+  function replaceVideo() {
+    var videoIndex = getVideoContainerIndex(cache.focus[0].id);
+    if (data[videoIndex].hasOwnProperty("a")) {
+      var answer = getAnswer(videoIndex);
+      cache.focus[0].textContent = answer.text;
+    }
   }
 
   //videoContainerId is a string ending in either a one or two digit number
@@ -67,29 +99,12 @@
     return videoContainerIndex;
   }
 
-  function replaceVideo(videoContainerId) {
-    var videoContainerIndex = getVideoContainerIndex(videoContainerId);
-    if(data[videoContainerIndex].a !== undefined) {
-      var videoContainer = $("#" + videoContainerId)[0];
-      var answer = getAnswer(videoContainerIndex);
-      $(videoContainer)[0].innerHTML = answer.text;
-    }
-  }
-  function createEvent() {
-    $(document).on("click keyup", delayVideoReplacementCall);
-  }
-  function delayVideoReplacementCall() {
-    setTimeout(replaceFocusedVideoContainer, 1);
-  }
-  function replaceFocusedVideoContainer() {
-    if(videoContainerIsFocused()) {
-      replaceVideo(getActiveVideoContainerId());
-    }
-  }
-  function videoContainerIsFocused() {
-    return $(".focus")[0] !== undefined;
-  }
-  function getActiveVideoContainerId() {
-    return $(".focus")[0].id;
+  function getAnswer(dataIndex) {
+    var answer = {
+      index: dataIndex,
+      value: data[dataIndex].a
+    };
+    answer.text = (answer.value) ? "YES" : "NO";
+    return answer;
   }
 })();
