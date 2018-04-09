@@ -1,106 +1,98 @@
 // ==UserScript==
 // @name         Amazon Voice Preference HITs Macro
 // @namespace    http://tampermonkey.net/
-// @version      1.2.0
+// @version      1.3.0
 // @description  A macro that allows the Amazon Speech Preference HITs to be used with the keyboard
 // @author       Kyle
 // @match        https://rvd.ivonaservice.com/mturk/*
 // @grant        none
-// @require      https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // ==/UserScript==
 
-$(function() {
+(function() {
     "use strict";
   
-    var Page = (function () {
+    var cache = {
+      player1Button: document.getElementById("playerButton-player1"),
+      player2Button: document.getElementById("playerButton-player2"),
+      preference1: document.getElementById("preference1"),
+      preference2: document.getElementById("preference2"),
+      preference3: document.getElementById("preference3"),
+      preference4: document.getElementById("preference4"),
+      preferenceSame: document.getElementById("preference5"),
+      preferenceUndecided: document.getElementById("preference6"),
+      submitButton: document.getElementById("submit"),
+  };
+  var selectionMade = false;
   
-      //PRIVATE MEMBERS
+  class Button {
+      constructor(element) {
+          this.element = element;
+      }
+      select() {
+          this.element.click();
+      }
+  }
+  class Player extends Button {
+      constructor(element) {
+          super(element);
+      }
+  }
+  class Preference extends Button {
+      constructor(element) {
+          super(element);
+      }
+      select() {
+          this.element.click();
+          selectionMade = true;
+      }
+  }
+  class SubmitButton extends Button {
+      constructor(element) {
+          super(element);
+      }
+      select() {
+          if (selectionMade) {
+              unbindEvents();
+              this.element.click();
+          } else {
+              window.alert("You need to make a selection.");
+          }
+      }
+  }
   
-      var button = {
-        player1Button: $("#playerButton-player1") [0],
-        player2Button: $("#playerButton-player2") [0],
-        preference1: $("#preference1"),
-        preference2: $("#preference2"),
-        preference3: $("#preference3"),
-        preference4: $("#preference4"),
-        preferenceSame: $("#preference5"),
-        prefUndecided: $("#preference6"),
-        submitButton: $("#submit") [0]
-      };
+  var buttons = {
+      1: new Player(cache.player1Button),
+      2: new Player(cache.player2Button),
+      q: new Preference(cache.preference1),
+      w: new Preference(cache.preference2),
+      e: new Preference(cache.preference3),
+      r: new Preference(cache.preference4),
+      t: new Preference(cache.preferenceSame),
+      y: new Preference(cache.preferenceUndecided),
+      Enter: new SubmitButton(cache.submitButton)
+  };
   
-      var enableSubmit = function () {
-        submit.enable("player-player1");
-        submit.enable("player-player2");
-      };
+  function pageInitialization() {
       enableSubmit();
+      bindEvents();
+  }
+  pageInitialization();
+  function enableSubmit() {
+      submit.enable("player-player1");
+      submit.enable("player-player2");
+  }
+  function bindEvents() {
+      document.addEventListener("keydown", buttonPress);
+  }
+  function unbindEvents() {
+      document.removeEventListener("keydown", buttonPress);
+  }
   
-      //PUBLIC MEMBERS
-  
-      this.submitPage = function() {
-        //Make sure that a selection is made before submitting
-        if ((button.preference1[0] === undefined || !button.preference1[0].checked) &&
-            (button.preference2[0] === undefined || !button.preference2[0].checked) &&
-            (button.preference3[0] === undefined || !button.preference3[0].checked) &&
-            (button.preference4[0] === undefined || !button.preference4[0].checked) &&
-            (button.preferenceSame[0] === undefined || !button.preferenceSame[0].checked) &&
-            (button.prefUndecided[0] === undefined || !button.prefUndecided[0].checked)) {
-  
-          window.alert("You need to select an option");
-          return;
-  
-        } else {
-          $(button.submitButton)[0].click();
-        }
-      };
-  
-      this.select = function(selection) {
-        button[selection].click();
-      };
-  
-    });
-  
-    var form = new Page();
-  
-    function buttonPress(button) {
-      if (button.defaultPrevented) {
-        return;
-      }
-      switch (button.key) {
-        case "1":
-          form.select("player1Button");
-          break;
-        case "2":
-          form.select("player2Button");
-          break;
-  
-        case "q":
-          form.select("preference1");
-          break;
-        case "w":
-          form.select("preference2");
-          break;
-        case "e":
-          form.select("preference3");
-          break;
-        case "r":
-          form.select("preference4");
-          break;
-  
-        case "t":
-          form.select("preferenceSame");
-          break;
-        case "y":
-          form.select("prefUndecided");
-          break;
-  
-        case "Enter":
-          //Use this function to make sure that a selection has been made prior to submitting
-          form.submitPage();
-          break;
-        default:
+  function buttonPress(keydownEvent) {
+      if(keydownEvent.defaultPrevented) {
           return;
       }
-      button.preventDefault();
-    }
-    window.addEventListener("keydown", buttonPress, true);
+      buttons[keydownEvent.key].select();
+      keydownEvent.preventDefault();
+  }
   })();
